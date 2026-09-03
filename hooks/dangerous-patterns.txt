@@ -50,3 +50,16 @@
 (^|[;&|[:space:]])gh[[:space:]]+api[[:space:]][^;&|]*(-X|--method)(=|[[:space:]]+)(DELETE|delete)
 (^|[;&|[:space:]])gh[[:space:]]+repo[[:space:]]+edit[^;&|]*--visibility(=|[[:space:]]+)public
 (^|[;&|[:space:]])gh[[:space:]]+auth[[:space:]]+token([[:space:]]|$)
+
+# 10. password managers & OS keychain (agents must never touch these)
+# Distinctive CLIs: blocked outright. "op"/"pass" are common words, so they
+# only block with their real subcommands / arguments at command position.
+(^|[;&|[:space:]])(bw|bws|lpass|keepassxc-cli|rbw|nordpass)([[:space:]]|$)
+(^|[;&|])[[:space:]]*pass[[:space:]]+[^[:space:]]
+(^|[;&|[:space:]])op[[:space:]]+(read|run|inject|item|document|vault|connect|service-account|events-api|signin)([[:space:]]|$)
+(^|[;&|[:space:]])security[[:space:]]+((-[a-zA-Z]+|--[a-z-]+)[[:space:]]+)*(find-generic-password|find-internet-password|dump-keychain)([[:space:]]|$)
+(1Password|Bitwarden|NordPass|KeePassXC)\.app
+(~|\$HOME|\$\{HOME\}|/Users/[^/[:space:]"']+)/\.password-store
+(^|[;&|[:space:]])open[[:space:]]+-a[[:space:]]+["']?(1[Pp]assword|[Bb]itwarden|[Nn]ord[Pp]ass|[Kk]ee[Pp]ass)
+(^|[;&|[:space:]])brew[[:space:]]+(uninstall|remove|rm)[^;&|]*[[:space:]]["']?(1password|bitwarden|nordpass|keepassxc|lastpass)
+--export-secret-(keys?|subkeys)([[:space:]=]|$)

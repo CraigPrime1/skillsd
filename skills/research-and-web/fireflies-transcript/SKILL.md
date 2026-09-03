@@ -1,6 +1,6 @@
 ---
 name: fireflies-transcript
-description: 'Pull raw meeting transcripts from the user''s Fireflies.ai notetaker via its GraphQL API, using the key saved globally on this machine. Use when the user wants a call transcript, meeting notes, "what was said on the call", onboarding-call transcripts, or Fireflies data. Differentiator: Fireflies meeting recordings only — for YouTube videos use youtube-transcript.'
+description: 'Pull raw meeting transcripts from the user''s Fireflies.ai notetaker via its GraphQL API, using the key saved locally. Use when the user wants a call transcript, meeting notes, "what was said on the call", onboarding-call transcripts, or Fireflies data. Differentiator: Fireflies meeting recordings only — for YouTube videos use youtube-transcript.'
 ---
 
 # Fireflies Transcript
@@ -9,10 +9,10 @@ Fetch any meeting transcript from Fireflies.ai as raw text via GraphQL. Read-onl
 
 ## Auth (state-check first)
 
-The API key lives in `~/.fireflies/env` (mode 600, never commit or print it):
+The API key lives in a local environment file (mode 600, never commit or print it):
 
 ```bash
-source ~/.fireflies/env   # exports FIREFLIES_API_KEY
+source <path-to-fireflies-env-file>   # exports FIREFLIES_API_KEY
 [ -n "$FIREFLIES_API_KEY" ] || echo "MISSING KEY - stop and tell the user"
 ```
 
@@ -32,17 +32,18 @@ curl -sS -X POST https://api.fireflies.ai/graphql \
 - `date` is epoch **milliseconds**. Convert on macOS: `date -r $((1784127600000/1000))`.
 - The `transcripts(title:)` filter is EXACT-match — it returns `[]` for partial names.
   List recent meetings and grep locally instead.
-- Ad-hoc meetings have no proper title (e.g. `user@... - Wed, 15 Jul 2026 17:00:55 CEST - Untitled`).
+- Ad-hoc meetings have no proper title (e.g. `Untitled - Wed, 15 Jul 2026 17:00:55 CEST`).
   Identify those by date/time, then confirm via content or speakers, not the title.
 - Paginate older meetings with `skip:` (e.g. `transcripts(limit: 50, skip: 25)`).
 
 ## Step 2 - pull the raw transcript
 
 ```bash
+QUERY='{ transcript(id: "MEETING_ID") { title sentences { speaker_name text } } }'
 curl -sS -X POST https://api.fireflies.ai/graphql \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $FIREFLIES_API_KEY" \
-  -d '{"query":"{ transcript(id: \"MEETING_ID\") { title sentences { speaker_name text } } }"}' \
+  -d "$(jq -nc --arg query "$QUERY" '{query: $query}')" \
   > /tmp/ff.json
 
 # speaker-labeled raw text (usual deliverable)
@@ -62,7 +63,7 @@ Optional extras on the same `transcript(id:)` query: `summary { overview short_s
 - `sentences: null` — recording still processing or no audio captured; nothing to pull.
 - `errors[]` in the response instead of `data` — usually a bad field name; fix the query.
 - 401/invalid key — key was rotated; ask the user for a new one (Fireflies dashboard:
-  Settings -> Developer settings), update `~/.fireflies/env`.
+  Settings -> Developer settings), update the environment file.
 
 ## Verify before reporting done
 
