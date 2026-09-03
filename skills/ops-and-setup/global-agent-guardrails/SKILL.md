@@ -29,17 +29,19 @@ If missing, rebuild from the wiring table below (full history: DeepAPI repo `doc
 
 ## Add or tune a pattern
 
-1. Edit `~/.agents/hooks/dangerous-patterns.txt`. Write POSIX ERE (`grep -E`). Use `[[:space:]]`, never `\s` — adapters auto-convert `[:space:]` to `\s` for JS/Python.
+1. Edit `~/.agents/hooks/dangerous-patterns.txt`. Write POSIX ERE (`grep -E`). Use `[[:space:]]`, never `\s` — adapters auto-convert `[:space:]` to `\s` for JS/Python and compile in multiline mode.
 2. Add block + allow cases to `test-guard.sh`, then run it. Must pass 100%.
 3. Verify the new pattern compiles in the adapter engines:
 
 ```bash
-python3 -c 'import re,pathlib; [re.compile(l.strip().replace("[:space:]",r"\s")) for l in pathlib.Path.home().joinpath(".agents/hooks/dangerous-patterns.txt").read_text().splitlines() if l.strip() and not l.startswith("#")]; print("ok")'
+python3 -c 'import re,pathlib; [re.compile(l.strip().replace("[:space:]",r"\s"),re.M) for l in pathlib.Path.home().joinpath(".agents/hooks/dangerous-patterns.txt").read_text().splitlines() if l.strip() and not l.startswith("#")]; print("ok")'
 ```
 
 4. Changes apply instantly everywhere (all consumers re-read the file per command). Exception: Droid uses its own `commandBlocklist` in `~/.factory/settings.json` — mirror the change there manually.
 
 Design rule: block only irreversible/catastrophic commands (data loss, disk wipe, repo deletion, token exfil). Local-destructive-but-recoverable commands (`git status`, `git clean -fdx`, `rm -rf node_modules`) stay ALLOWED — over-blocking kills agent usefulness.
+
+Password managers are also a hard NO (pattern group 10): agents must never use their CLIs (`bw`, `bws`, `lpass`, `keepassxc-cli`, `rbw`, `nordpass` outright; `pass` with any argument at command position; `op` with its real subcommands — bare `op`/`pass` stay unblocked because they are common words), dump the macOS keychain (`security find-*-password`, `dump-keychain`), export gpg secret keys, touch vault data (`~/.password-store`, the `.app` bundles), or open/uninstall the apps.
 
 ## Per-agent wiring (user-global)
 
@@ -77,6 +79,7 @@ Use absolute paths in configs (`~` expansion is inconsistent across agents).
 - **Pi `tool_call` handler errors block the tool** (fail-safe) — adapter must catch its own errors and fail open, or a broken patterns file bricks every bash call.
 - **Droid semantics:** `commandDenylist` = ask for confirmation; `commandBlocklist` = never runs, even at full autonomy with `--skip-permissions-unsafe`. Use blocklist for catastrophic entries.
 - **Guard script payload detection:** command lives at `.tool_input.command` (Claude/Codex/Devin), `.toolInput.command` (Grok), `.command` (Cursor). Keep all three in the jq fallback chain.
+- **Adapter regexes require multiline mode.** Keep JavaScript's `m` flag and Python's `re.M` so `^` matches each shell line like `grep`.
 - **False-positive class:** a harmless command whose ARGUMENT text contains a dangerous-looking string (e.g. passing a prompt mentioning `git push --force` on a CLI) gets blocked. Workaround: put the text in a file and reference it.
 - **Not coverable natively (no hook system as of 2026-07):** Gemini CLI, Qwen Code, Amp, kimi-cli. Codex cloud tasks and Cursor background agents also bypass the local guard.
 

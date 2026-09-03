@@ -34,19 +34,20 @@ Field limits: `query` ≤ 4000 chars (the paragraph goes here), optional `contex
 
 ## Step 2 — Run it
 
-One call = one cited answer (~700 words max, finishes or fails within ~60s server-side).
+One call = one cited answer (targets 700-1,120 words; the server allows up to ~5 minutes, most runs finish much faster).
 
 ```bash
 IDK=$(uuidgen)   # keep this; retries must reuse the SAME Idempotency-Key
-jq -n --rawfile p /tmp/dr_prompt.txt '{query:$p, maxCostUsd:"0.20"}' > /tmp/dr_body.json
-curl -s --max-time 120 "$BASE/v1/research/deep" \
+jq -n --rawfile p /tmp/dr_prompt.txt '{query:$p, maxCostUsd:"0.70"}' > /tmp/dr_body.json
+curl -s --max-time 320 "$BASE/v1/research/deep" \
   -H "Authorization: Bearer $KEY" \
   -H "Content-Type: application/json" \
   -H "Idempotency-Key: $IDK" \
   -d @/tmp/dr_body.json > /tmp/dr_result.json
 ```
 
-Default spend cap is `maxCostUsd: "0.20"` per call — this is the API's minimum (lower values are rejected with `invalid_request`, confirmed 2026-07-21); raise it only if the user approves.
+The API minimum is `maxCostUsd: "0.35"` per call. Use the recommended
+`maxCostUsd: "0.70"` by default; raise it above $0.70 only if the user approves.
 
 ## Step 3 — Read the report + sources
 
@@ -58,11 +59,11 @@ jq -r '.output.sources[]?.url'     /tmp/dr_result.json   # source URLs
 
 Save the report to a markdown file for the user and list citation URLs beneath it. Don't report research costs unless the user asks.
 
-If `output.sources` comes back empty while the answer shows `[n]` citation markers, that's a DeepAPI regression (fixed 2026-07-05) — still deliver the report, but tell the user.
+If `output.sources` comes back empty while the answer shows `[n]` citation markers, still deliver the report, but tell the user.
 
 ## Bigger topics — multi-call reports
 
-One call is capped at ~700 words. For a full deep-research report, fire one call per numbered sub-question (each with its own Idempotency-Key), then synthesize all answers + sources into a single markdown file.
+One call tops out around 1,100 words. For a full deep-research report, fire one call per numbered sub-question (each with its own Idempotency-Key), then synthesize all answers + sources into a single markdown file.
 
 ## Failure modes
 
